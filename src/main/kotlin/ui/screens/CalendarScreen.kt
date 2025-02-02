@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import data.model.Routine
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
@@ -25,10 +26,22 @@ import java.util.*
 
 @Composable
 fun CalendarScreen(
+    routineViewModel: RoutineViewModel,
     paddingValues: PaddingValues
 ) {
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
     var currentMonth by remember { mutableStateOf(YearMonth.now()) }
+    val routines by routineViewModel.routines.collectAsState()
+
+    // Filter routines for selected date
+    val routinesForSelectedDay = routines.filter { routine ->
+        // TODO: Add proper date filtering logic based on your requirements
+        true // For now, show all routines
+    }
+
+    LaunchedEffect(selectedDate) {
+        routineViewModel.loadAllRoutines()
+    }
 
     Column(
         modifier = Modifier
@@ -52,6 +65,9 @@ fun CalendarScreen(
         // Daily overview
         DailyOverview(
             selectedDate = selectedDate,
+            routines = routinesForSelectedDay,
+            onEditRoutine = { /* Handle edit */ },
+            onDeleteRoutine = { routineViewModel.deleteRoutine(it.id) },
             modifier = Modifier.weight(1f)
         )
     }
@@ -166,50 +182,33 @@ private fun CalendarDay(
 @Composable
 private fun DailyOverview(
     selectedDate: LocalDate,
+    routines: List<Routine>,
+    onEditRoutine: (Routine) -> Unit,
+    onDeleteRoutine: (Routine) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(16.dp)
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        elevation = 2.dp
     ) {
-        Text(
-            text = "Overview for ${selectedDate.format(java.time.format.DateTimeFormatter.ofPattern("MMMM d, yyyy"))}",
-            style = MaterialTheme.typography.h6,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-
-        // TODO: Add tasks and habits for the selected date
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = 2.dp
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                Text(
-                    text = "Tasks",
-                    style = MaterialTheme.typography.subtitle1
-                )
-                // TODO: Show tasks for selected date
-
-                Divider(modifier = Modifier.padding(vertical = 8.dp))
-
-                Text(
-                    text = "Habits",
-                    style = MaterialTheme.typography.subtitle1
-                )
-                // TODO: Show habits for selected date
-
-                Divider(modifier = Modifier.padding(vertical = 8.dp))
-
+            item {
                 Text(
                     text = "Routines",
                     style = MaterialTheme.typography.subtitle1
                 )
-                // TODO: Show routines for selected date
+            }
+
+            items(routines) { routine ->
+                RoutineItem(
+                    routine = routine,
+                    onEditClick = { onEditRoutine(routine) },
+                    onDeleteClick = { onDeleteRoutine(routine) }
+                )
             }
         }
     }

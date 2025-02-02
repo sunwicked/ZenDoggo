@@ -43,7 +43,7 @@ fun App(
         ) { padding ->
             when (currentScreen) {
                 Screen.Canvas -> CanvasScreen(taskViewModel, habitViewModel, routineViewModel, padding)
-                Screen.Calendar -> CalendarScreen(padding)
+                Screen.Calendar -> CalendarScreen(routineViewModel,padding)
                 else -> {}
             }
         }

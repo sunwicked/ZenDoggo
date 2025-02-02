@@ -89,7 +89,9 @@ fun RoutinesScreen(
                 viewModel.addRoutine(routine)
                 showAddDialog = false
             },
-            currentType = selectedType
+            currentType = selectedType,
+            availableTasks = tasks,
+            availableHabits = habits
         )
     }
 
@@ -143,11 +145,16 @@ fun RoutinesScreen(
 fun AddRoutineDialog(
     onDismiss: () -> Unit,
     onRoutineAdded: (Routine) -> Unit,
-    currentType: RoutineType
+    currentType: RoutineType,
+    availableTasks: List<Task>,
+    availableHabits: List<Habit>
 ) {
     var routineName by remember { mutableStateOf("") }
     var startTime by remember { mutableStateOf<LocalTime?>(null) }
     var endTime by remember { mutableStateOf<LocalTime?>(null) }
+    var selectedTasks by remember { mutableStateOf(setOf<Task>()) }
+    var selectedHabits by remember { mutableStateOf(setOf<Habit>()) }
+    var showItemsDialog by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -160,7 +167,44 @@ fun AddRoutineDialog(
                     label = { Text("Routine Name") },
                     modifier = Modifier.fillMaxWidth()
                 )
-                // TODO: Add time pickers for startTime and endTime
+
+                // Time pickers
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // TODO: Add proper time pickers
+                }
+
+                // Show selected items summary
+                if (selectedTasks.isNotEmpty() || selectedHabits.isNotEmpty()) {
+                    Column(modifier = Modifier.padding(top = 8.dp)) {
+                        if (selectedTasks.isNotEmpty()) {
+                            Text(
+                                text = "Selected Tasks (${selectedTasks.size})",
+                                style = MaterialTheme.typography.subtitle2
+                            )
+                        }
+                        if (selectedHabits.isNotEmpty()) {
+                            Text(
+                                text = "Selected Habits (${selectedHabits.size})",
+                                style = MaterialTheme.typography.subtitle2
+                            )
+                        }
+                    }
+                }
+
+                // Add items button
+                TextButton(
+                    onClick = { showItemsDialog = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                ) {
+                    Text("Add Tasks and Habits")
+                }
             }
         },
         confirmButton = {
@@ -172,7 +216,9 @@ fun AddRoutineDialog(
                                 name = routineName,
                                 type = currentType,
                                 startTime = startTime,
-                                endTime = endTime
+                                endTime = endTime,
+                                tasks = selectedTasks.toList(),
+                                habits = selectedHabits.toList()
                             )
                         )
                     }
@@ -188,4 +234,24 @@ fun AddRoutineDialog(
             }
         }
     )
+
+    // Show items selection dialog
+    if (showItemsDialog) {
+        AddItemsToRoutineDialog(
+            onDismiss = { showItemsDialog = false },
+            onSave = { tasks, habits ->
+                selectedTasks = tasks.toSet()
+                selectedHabits = habits.toSet()
+                showItemsDialog = false
+            },
+            availableTasks = availableTasks,
+            availableHabits = availableHabits,
+            currentRoutine = Routine(
+                name = routineName,
+                type = currentType,
+                tasks = selectedTasks.toList(),
+                habits = selectedHabits.toList()
+            )
+        )
+    }
 }
