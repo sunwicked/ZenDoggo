@@ -9,6 +9,8 @@ data class Task(
     val name: String,
     val description: String = "",
     val isCompleted: Boolean = false,
+    val priority: Priority = Priority.MEDIUM,
+    val progress: Float = 0f,
     val timeScheduled: LocalDateTime? = null,
     val createdAt: LocalDateTime = LocalDateTime.now(),
     var position: Offset = Offset.Zero

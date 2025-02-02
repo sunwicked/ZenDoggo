@@ -1,4 +1,5 @@
 import androidx.compose.animation.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -7,23 +8,57 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.LowPriority
+import androidx.compose.material.icons.outlined.PriorityHigh
+import androidx.compose.material.icons.outlined.Sort
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import data.model.Habit
-import data.model.Routine
-import data.model.RoutineType
-import data.model.Task
+import data.model.*
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
+
+private object CanvasColors {
+    // Background colors
+    val canvasBackground = Color(0xFF1A1B1E)  // Darker background
+    val gridColor = Color.White.copy(alpha = 0.04f)
+    val gridCenterColor = Color.White.copy(alpha = 0.08f)
+
+    // Routine card colors by type
+    val morningCard = Color(0xFF1E88E5).copy(alpha = 0.15f)  // Soft blue
+    val afternoonCard = Color(0xFFFFB300).copy(alpha = 0.15f) // Warm amber
+    val eveningCard = Color(0xFF7B1FA2).copy(alpha = 0.15f)  // Rich purple
+    val nightCard = Color(0xFF2C3E50).copy(alpha = 0.15f)    // Deep slate
+
+    // Task and Habit colors
+    val taskCard = Color(0xFF2196F3).copy(alpha = 0.12f)
+    val taskBorder = Color(0xFF2196F3).copy(alpha = 0.25f)
+    val habitCard = Color(0xFF66BB6A).copy(alpha = 0.12f)
+    val habitBorder = Color(0xFF66BB6A).copy(alpha = 0.25f)
+    
+    // Status colors
+    val completedIcon = Color(0xFF4CAF50)
+    val timeChipBackground = Color.White.copy(alpha = 0.08f)
+    val textPrimary = Color.White
+    val textSecondary = Color.White.copy(alpha = 0.7f)
+
+    // Priority colors
+    val priorityHigh = Color(0xFFE57373).copy(alpha = 0.8f)    // Red
+    val priorityMedium = Color(0xFFFFB74D).copy(alpha = 0.8f)  // Orange
+    val priorityLow = Color(0xFF81C784).copy(alpha = 0.8f)     // Green
+    
+    // Progress colors
+    val progressBackground = Color.White.copy(alpha = 0.1f)
+    val progressFill = Color.White.copy(alpha = 0.3f)
+}
 
 @Composable
 fun CanvasScreen(
@@ -72,7 +107,7 @@ fun CanvasScreen(
         modifier = Modifier
             .fillMaxSize()
             .padding(paddingValues)
-            .background(Color(0xFF1E1E1E))
+            .background(CanvasColors.canvasBackground)
     ) {
         // Canvas with routines
         Box(
@@ -174,7 +209,7 @@ fun CanvasScreen(
     // Dialogs
     when (showDialog) {
         DialogType.Task -> {
-            AddTaskDialog(
+            TaskDialog(
                 onDismiss = { showDialog = null },
                 onTaskAdded = { task ->
                     taskViewModel.addTask(task)
@@ -227,49 +262,81 @@ private fun RoutineNode(
             modifier = Modifier.fillMaxWidth(),
             elevation = 4.dp,
             backgroundColor = when(routine.type) {
-                RoutineType.MORNING -> Color(0xFF1976D2).copy(alpha = 0.2f)
-                RoutineType.EVENING -> Color(0xFF7B1FA2).copy(alpha = 0.2f)
-                else -> MaterialTheme.colors.surface
+                RoutineType.MORNING -> CanvasColors.morningCard
+                RoutineType.AFTERNOON -> CanvasColors.afternoonCard
+                RoutineType.EVENING -> CanvasColors.eveningCard
+                RoutineType.NIGHT -> CanvasColors.nightCard
             }
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                // Routine header
-                Text(
-                    text = routine.name,
-                    style = MaterialTheme.typography.h6,
-                    color = Color.White
-                )
-                
-                // Time info
+            Column(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .fillMaxWidth()
+            ) {
+                // Header
                 Row(
-                    modifier = Modifier.padding(vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    routine.startTime?.let { 
-                        Text("Start: $it", color = Color.White.copy(alpha = 0.7f))
+                    Column {
+                        Text(
+                            text = routine.name,
+                            style = MaterialTheme.typography.h6,
+                            color = CanvasColors.textPrimary
+                        )
+                        Text(
+                            text = routine.type.name,
+                            style = MaterialTheme.typography.caption,
+                            color = CanvasColors.textSecondary
+                        )
                     }
-                    routine.endTime?.let {
-                        Text("End: $it", color = Color.White.copy(alpha = 0.7f))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        routine.startTime?.let { 
+                            TimeChip(time = it)
+                        }
+                        routine.endTime?.let {
+                            TimeChip(time = it)
+                        }
                     }
                 }
 
-                // Tasks and Habits summary
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Tasks Section
                 if (routine.tasks.isNotEmpty()) {
                     Text(
-                        text = "Tasks (${routine.tasks.size})",
-                        style = MaterialTheme.typography.subtitle2,
-                        color = Color.White.copy(alpha = 0.9f),
-                        modifier = Modifier.padding(top = 8.dp)
+                        text = "Tasks",
+                        style = MaterialTheme.typography.subtitle1,
+                        color = CanvasColors.textPrimary,
+                        modifier = Modifier.padding(bottom = 8.dp)
                     )
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        routine.tasks.forEach { task ->
+                            TaskCard(task = task)
+                        }
+                    }
                 }
-                
+
+                // Habits Section
                 if (routine.habits.isNotEmpty()) {
                     Text(
-                        text = "Habits (${routine.habits.size})",
-                        style = MaterialTheme.typography.subtitle2,
-                        color = Color.White.copy(alpha = 0.9f),
-                        modifier = Modifier.padding(top = 8.dp)
+                        text = "Habits",
+                        style = MaterialTheme.typography.subtitle1,
+                        color = CanvasColors.textPrimary,
+                        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
                     )
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        routine.habits.forEach { habit ->
+                            HabitCard(habit = habit)
+                        }
+                    }
                 }
             }
         }
@@ -277,8 +344,191 @@ private fun RoutineNode(
 }
 
 @Composable
+private fun TaskCard(
+    task: Task,
+    modifier: Modifier = Modifier
+) {
+    var isHovered by remember { mutableStateOf(false) }
+    
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = if (isHovered) 1.02f else 1f
+                scaleY = if (isHovered) 1.02f else 1f
+            }
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        isHovered = event.type == PointerEventType.Enter
+                    }
+                }
+            }
+            .animateContentSize(),
+        backgroundColor = CanvasColors.taskCard,
+        border = BorderStroke(
+            1.dp,
+            when (task.priority) {
+                Priority.HIGH -> CanvasColors.priorityHigh
+                Priority.MEDIUM -> CanvasColors.priorityMedium
+                Priority.LOW -> CanvasColors.priorityLow
+            }
+        ),
+        elevation = if (isHovered) 8.dp else 4.dp
+    ) {
+        Column(modifier = Modifier.padding(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    // Priority icon with color
+                    Icon(
+                        imageVector = when (task.priority) {
+                            Priority.HIGH -> Icons.Outlined.PriorityHigh
+                            Priority.MEDIUM -> Icons.Outlined.Sort
+                            Priority.LOW -> Icons.Outlined.LowPriority
+                        },
+                        contentDescription = "Priority ${task.priority}",
+                        tint = when (task.priority) {
+                            Priority.HIGH -> CanvasColors.priorityHigh
+                            Priority.MEDIUM -> CanvasColors.priorityMedium
+                            Priority.LOW -> CanvasColors.priorityLow
+                        },
+                        modifier = Modifier.size(16.dp)
+                    )
+                    
+                    Text(
+                        text = task.name,
+                        style = MaterialTheme.typography.body2,
+                        color = CanvasColors.textPrimary
+                    )
+                }
+                
+                if (task.isCompleted) {
+                    Icon(
+                        Icons.Default.CheckCircle,
+                        contentDescription = "Completed",
+                        tint = CanvasColors.completedIcon,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+            
+            // Progress indicator (only show if there's progress)
+            if (!task.isCompleted && task.progress > 0f) {
+                LinearProgressIndicator(
+                    progress = task.progress,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                        .height(4.dp),
+                    backgroundColor = CanvasColors.progressBackground,
+                    color = CanvasColors.progressFill
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HabitCard(
+    habit: Habit,
+    modifier: Modifier = Modifier
+) {
+    var isHovered by remember { mutableStateOf(false) }
+    
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = if (isHovered) 1.02f else 1f
+                scaleY = if (isHovered) 1.02f else 1f
+            }
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        isHovered = event.type == PointerEventType.Enter
+                    }
+                }
+            }
+            .animateContentSize(),
+        backgroundColor = CanvasColors.habitCard,
+        border = BorderStroke(1.dp, CanvasColors.habitBorder),
+        elevation = if (isHovered) 8.dp else 4.dp
+    ) {
+        Column(modifier = Modifier.padding(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Loop,
+                        contentDescription = null,
+                        tint = CanvasColors.textPrimary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Column {
+                        Text(
+                            text = habit.name,
+                            style = MaterialTheme.typography.body2,
+                            color = CanvasColors.textPrimary
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "🔥 ${habit.streak}",
+                                style = MaterialTheme.typography.caption,
+                                color = CanvasColors.textSecondary
+                            )
+                            // Streak progress
+                            LinearProgressIndicator(
+                                progress = (habit.streak % 7) / 7f,
+                                modifier = Modifier
+                                    .width(48.dp)
+                                    .height(2.dp),
+                                backgroundColor = CanvasColors.progressBackground,
+                                color = CanvasColors.progressFill
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TimeChip(time: LocalTime) {
+    Card(
+        backgroundColor = CanvasColors.timeChipBackground,
+        modifier = Modifier.height(24.dp)
+    ) {
+        Text(
+            text = time.format(DateTimeFormatter.ofPattern("HH:mm")),
+            style = MaterialTheme.typography.caption,
+            color = CanvasColors.textSecondary,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+        )
+    }
+}
+
+@Composable
 private fun CanvasGrid() {
-    val gridColor = Color.White.copy(alpha = 0.05f)  // Very subtle grid
     val gridSpacing = 50.dp  // Space between grid lines
     
     Canvas(modifier = Modifier.fillMaxSize()) {
@@ -289,7 +539,7 @@ private fun CanvasGrid() {
         var x = 0f
         while (x < width) {
             drawLine(
-                color = gridColor,
+                color = CanvasColors.gridColor,
                 start = Offset(x, 0f),
                 end = Offset(x, height),
                 strokeWidth = 1f
@@ -301,7 +551,7 @@ private fun CanvasGrid() {
         var y = 0f
         while (y < height) {
             drawLine(
-                color = gridColor,
+                color = CanvasColors.gridColor,
                 start = Offset(0f, y),
                 end = Offset(width, y),
                 strokeWidth = 1f
@@ -310,15 +560,14 @@ private fun CanvasGrid() {
         }
 
         // Draw center lines slightly brighter
-        val centerColor = Color.White.copy(alpha = 0.1f)
         drawLine(
-            color = centerColor,
+            color = CanvasColors.gridCenterColor,
             start = Offset(width / 2, 0f),
             end = Offset(width / 2, height),
             strokeWidth = 1f
         )
         drawLine(
-            color = centerColor,
+            color = CanvasColors.gridCenterColor,
             start = Offset(0f, height / 2),
             end = Offset(width, height / 2),
             strokeWidth = 1f
