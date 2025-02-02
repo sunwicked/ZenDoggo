@@ -159,7 +159,7 @@ private fun RoutineItem(
 }
 
 @Composable
-private fun AddRoutineDialog(
+fun AddRoutineDialog(
     onDismiss: () -> Unit,
     onRoutineAdded: (Routine) -> Unit,
     currentType: RoutineType

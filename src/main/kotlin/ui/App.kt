@@ -4,6 +4,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.runtime.*
 import androidx.compose.ui.unit.dp
 
@@ -13,7 +14,7 @@ fun App(
     habitViewModel: HabitViewModel,
     routineViewModel: RoutineViewModel
 ) {
-    var currentScreen by remember { mutableStateOf<Screen>(Screen.Tasks) }
+    var currentScreen by remember { mutableStateOf<Screen>(Screen.Canvas) }
 
     ZenDoggoTheme {
         Scaffold(
@@ -26,22 +27,10 @@ fun App(
             bottomBar = {
                 BottomNavigation {
                     BottomNavigationItem(
-                        icon = { Icon(Icons.Default.CheckCircle, "Tasks") },
-                        label = { Text("Tasks") },
-                        selected = currentScreen == Screen.Tasks,
-                        onClick = { currentScreen = Screen.Tasks }
-                    )
-                    BottomNavigationItem(
-                        icon = { Icon(Icons.Default.Refresh, "Habits") },
-                        label = { Text("Habits") },
-                        selected = currentScreen == Screen.Habits,
-                        onClick = { currentScreen = Screen.Habits }
-                    )
-                    BottomNavigationItem(
-                        icon = { Icon(Icons.Default.List, "Routines") },
-                        label = { Text("Routines") },
-                        selected = currentScreen == Screen.Routines,
-                        onClick = { currentScreen = Screen.Routines }
+                        icon = { Icon(Icons.Outlined.Dashboard, "Canvas") },
+                        label = { Text("Canvas") },
+                        selected = currentScreen == Screen.Canvas,
+                        onClick = { currentScreen = Screen.Canvas }
                     )
                     BottomNavigationItem(
                         icon = { Icon(Icons.Default.DateRange, "Calendar") },
@@ -53,9 +42,7 @@ fun App(
             }
         ) { padding ->
             when (currentScreen) {
-                Screen.Tasks -> TasksScreen(taskViewModel, padding)
-                Screen.Habits -> HabitsScreen(habitViewModel, padding)
-                Screen.Routines -> RoutinesScreen(routineViewModel, padding)
+                Screen.Canvas -> CanvasScreen(taskViewModel, habitViewModel, routineViewModel, padding)
                 Screen.Calendar -> CalendarScreen(padding)
                 else -> {}
             }

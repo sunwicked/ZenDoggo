@@ -124,7 +124,7 @@ private fun HabitItem(
 }
 
 @Composable
-private fun AddHabitDialog(
+fun AddHabitDialog(
     onDismiss: () -> Unit,
     onHabitAdded: (Habit) -> Unit
 ) {

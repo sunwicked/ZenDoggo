@@ -115,7 +115,7 @@ private fun TaskItem(
 }
 
 @Composable
-private fun AddTaskDialog(
+fun AddTaskDialog(
     onDismiss: () -> Unit,
     onTaskAdded: (Task) -> Unit
 ) {
