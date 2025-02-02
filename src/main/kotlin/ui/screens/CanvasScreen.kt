@@ -1,23 +1,22 @@
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import data.model.Habit
@@ -28,77 +27,54 @@ import kotlin.math.roundToInt
 
 @Composable
 fun CanvasScreen(
+    routineViewModel: RoutineViewModel,
     taskViewModel: TaskViewModel,
     habitViewModel: HabitViewModel,
-    routineViewModel: RoutineViewModel,
     paddingValues: PaddingValues
 ) {
+    val routines by routineViewModel.routines.collectAsState()
     val tasks by taskViewModel.tasks.collectAsState()
     val habits by habitViewModel.habits.collectAsState()
-    val routines by routineViewModel.routines.collectAsState()
     
-    var showDialog by remember { mutableStateOf<DialogType?>(null) }
-
     // Canvas state
     var scale by remember { mutableStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
-
-    // Add position state for each item
+    var showAddRoutine by remember { mutableStateOf(false) }
+    var showFabMenu by remember { mutableStateOf(false) }
+    var showDialog by remember { mutableStateOf<DialogType?>(null) }
+    
+    // Store routine positions
     val positions = remember { mutableStateMapOf<String, Offset>() }
     
-    // Initialize positions if not set
-    LaunchedEffect(tasks, habits, routines) {
-        // Arrange items in a grid-like pattern
+    // Initialize positions in a grid layout
+    LaunchedEffect(routines) {
         var x = 100f
         var y = 100f
-        
         routines.forEach { routine ->
             if (routine.id !in positions) {
                 positions[routine.id] = Offset(x, y)
-                x += 400f  // Space for large cards
-                if (x > 1200f) {  // Wrap to next row
+                x += 400f
+                if (x > 1200f) {
                     x = 100f
                     y += 300f
-                }
-            }
-        }
-        
-        tasks.forEach { task ->
-            if (task.id !in positions) {
-                positions[task.id] = Offset(x, y)
-                x += 250f  // Space for smaller cards
-                if (x > 1200f) {
-                    x = 100f
-                    y += 150f
-                }
-            }
-        }
-        
-        habits.forEach { habit ->
-            if (habit.id !in positions) {
-                positions[habit.id] = Offset(x, y)
-                x += 250f
-                if (x > 1200f) {
-                    x = 100f
-                    y += 150f
                 }
             }
         }
     }
 
     LaunchedEffect(Unit) {
+        routineViewModel.loadAllRoutines()
         taskViewModel.loadTasks()
         habitViewModel.loadHabits()
-        routineViewModel.loadAllRoutines()
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .padding(paddingValues)
-            .background(Color(0xFF1E1E1E))  // Dark background
+            .background(Color(0xFF1E1E1E))
     ) {
-        // Canvas area
+        // Canvas with routines
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -119,105 +95,83 @@ fun CanvasScreen(
             
             // Draw routines
             routines.forEach { routine ->
-                DraggableCard(
-                    modifier = Modifier
-                        .offset { 
-                            IntOffset(
-                                positions[routine.id]?.x?.roundToInt() ?: 0,
-                                positions[routine.id]?.y?.roundToInt() ?: 0
-                            )
-                        }
-                        .width(380.dp),
-                    onPositionChange = { offset ->
-                        positions[routine.id] = offset
+                RoutineNode(
+                    routine = routine,
+                    position = positions[routine.id] ?: Offset.Zero,
+                    onPositionChange = { newOffset ->
+                        positions[routine.id] = newOffset
                     }
-                ) {
-                    RoutineCard(
-                        routine = routine,
-                        onTaskToggle = { task -> 
-                            taskViewModel.updateTask(task.copy(isCompleted = !task.isCompleted))
-                        },
-                        onHabitToggle = { habit ->
-                            habitViewModel.updateHabit(habit.copy(isCompleted = !habit.isCompleted))
-                        }
-                    )
-                }
-            }
-
-            // Draw tasks
-            tasks.forEach { task ->
-                DraggableCard(
-                    modifier = Modifier
-                        .offset { 
-                            IntOffset(
-                                positions[task.id]?.x?.roundToInt() ?: 0,
-                                positions[task.id]?.y?.roundToInt() ?: 0
-                            )
-                        }
-                        .width(230.dp),
-                    onPositionChange = { offset ->
-                        positions[task.id] = offset
-                    }
-                ) {
-                    TaskCard(
-                        task = task,
-                        onToggle = { taskViewModel.updateTask(task.copy(isCompleted = !task.isCompleted)) }
-                    )
-                }
-            }
-
-            // Draw habits
-            habits.forEach { habit ->
-                DraggableCard(
-                    modifier = Modifier
-                        .offset { 
-                            IntOffset(
-                                positions[habit.id]?.x?.roundToInt() ?: 0,
-                                positions[habit.id]?.y?.roundToInt() ?: 0
-                            )
-                        }
-                        .width(230.dp),
-                    onPositionChange = { offset ->
-                        positions[habit.id] = offset
-                    }
-                ) {
-                    HabitCard(
-                        habit = habit,
-                        onToggle = { habitViewModel.updateHabit(habit.copy(isCompleted = !habit.isCompleted)) }
-                    )
-                }
+                )
             }
         }
 
-        // Controls overlay
+        // FAB Menu
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
-            // Zoom controls
-            ZoomControls(
-                scale = scale,
-                onZoomIn = { scale = (scale * 1.2f).coerceIn(0.5f, 2f) },
-                onZoomOut = { scale = (scale / 1.2f).coerceIn(0.5f, 2f) },
-                onReset = { 
-                    scale = 1f
-                    offset = Offset.Zero
-                },
-                modifier = Modifier.align(Alignment.TopEnd)
-            )
+            // Expanded FAB menu
+            AnimatedVisibility(
+                visible = showFabMenu,
+                enter = fadeIn() + slideInVertically(),
+                exit = fadeOut() + slideOutVertically(),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(bottom = 72.dp)  // Space for main FAB
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Add Task FAB
+                    ExtendedFloatingActionButton(
+                        text = { Text("Add Task") },
+                        icon = { Icon(Icons.Default.Assignment, "Add Task") },
+                        onClick = { 
+                            showDialog = DialogType.Task
+                            showFabMenu = false
+                        },
+                        backgroundColor = MaterialTheme.colors.primary
+                    )
 
-            // Add button
+                    // Add Habit FAB
+                    ExtendedFloatingActionButton(
+                        text = { Text("Add Habit") },
+                        icon = { Icon(Icons.Default.Loop, "Add Habit") },
+                        onClick = { 
+                            showDialog = DialogType.Habit
+                            showFabMenu = false
+                        },
+                        backgroundColor = MaterialTheme.colors.secondary
+                    )
+
+                    // Add Routine FAB
+                    ExtendedFloatingActionButton(
+                        text = { Text("Add Routine") },
+                        icon = { Icon(Icons.Default.PlaylistAdd, "Add Routine") },
+                        onClick = { 
+                            showDialog = DialogType.Routine
+                            showFabMenu = false
+                        }
+                    )
+                }
+            }
+
+            // Main FAB
             FloatingActionButton(
-                onClick = { showDialog = DialogType.Task },
+                onClick = { showFabMenu = !showFabMenu },
                 modifier = Modifier.align(Alignment.BottomEnd)
             ) {
-                Icon(Icons.Default.Add, "Add Item")
+                Icon(
+                    if (showFabMenu) Icons.Default.Close else Icons.Default.Add,
+                    contentDescription = if (showFabMenu) "Close menu" else "Open menu"
+                )
             }
         }
     }
 
-    // Show appropriate dialog based on selection
+    // Dialogs
     when (showDialog) {
         DialogType.Task -> {
             AddTaskDialog(
@@ -253,166 +207,71 @@ fun CanvasScreen(
     }
 }
 
+private enum class DialogType {
+    Task, Habit, Routine
+}
+
 @Composable
-private fun RoutineCard(
+private fun RoutineNode(
     routine: Routine,
-    onTaskToggle: (Task) -> Unit,
-    onHabitToggle: (Habit) -> Unit
+    position: Offset,
+    onPositionChange: (Offset) -> Unit
 ) {
-    Card(
+    DraggableCard(
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        elevation = 4.dp
+            .offset { IntOffset(position.x.roundToInt(), position.y.roundToInt()) }
+            .width(380.dp),
+        onPositionChange = onPositionChange
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = routine.name,
-                style = MaterialTheme.typography.h6
-            )
-            Text(
-                text = routine.type.name,
-                style = MaterialTheme.typography.caption,
-                color = MaterialTheme.colors.primary
-            )
-            
-            if (routine.tasks.isNotEmpty()) {
-                Text(
-                    text = "Tasks",
-                    style = MaterialTheme.typography.subtitle1,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-                routine.tasks.forEach { task ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "• ${task.name}",
-                            style = MaterialTheme.typography.body2,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Checkbox(
-                            checked = task.isCompleted,
-                            onCheckedChange = { onTaskToggle(task) }
-                        )
-                    }
-                }
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            elevation = 4.dp,
+            backgroundColor = when(routine.type) {
+                RoutineType.MORNING -> Color(0xFF1976D2).copy(alpha = 0.2f)
+                RoutineType.EVENING -> Color(0xFF7B1FA2).copy(alpha = 0.2f)
+                else -> MaterialTheme.colors.surface
             }
-
-            if (routine.habits.isNotEmpty()) {
-                Text(
-                    text = "Habits",
-                    style = MaterialTheme.typography.subtitle1,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-                routine.habits.forEach { habit ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "• ${habit.name}",
-                                style = MaterialTheme.typography.body2
-                            )
-                            Text(
-                                text = "🔥 ${habit.streak}",
-                                style = MaterialTheme.typography.caption
-                            )
-                        }
-                        Checkbox(
-                            checked = habit.isCompleted,
-                            onCheckedChange = { onHabitToggle(habit) }
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TaskCard(
-    task: Task,
-    onToggle: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        elevation = 2.dp
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                // Routine header
                 Text(
-                    text = task.name,
-                    style = MaterialTheme.typography.subtitle1
+                    text = routine.name,
+                    style = MaterialTheme.typography.h6,
+                    color = Color.White
                 )
-                if (task.description.isNotBlank()) {
+                
+                // Time info
+                Row(
+                    modifier = Modifier.padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    routine.startTime?.let { 
+                        Text("Start: $it", color = Color.White.copy(alpha = 0.7f))
+                    }
+                    routine.endTime?.let {
+                        Text("End: $it", color = Color.White.copy(alpha = 0.7f))
+                    }
+                }
+
+                // Tasks and Habits summary
+                if (routine.tasks.isNotEmpty()) {
                     Text(
-                        text = task.description,
-                        style = MaterialTheme.typography.body2,
-                        color = MaterialTheme.colors.onSurface.copy(alpha = 0.6f)
+                        text = "Tasks (${routine.tasks.size})",
+                        style = MaterialTheme.typography.subtitle2,
+                        color = Color.White.copy(alpha = 0.9f),
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+                
+                if (routine.habits.isNotEmpty()) {
+                    Text(
+                        text = "Habits (${routine.habits.size})",
+                        style = MaterialTheme.typography.subtitle2,
+                        color = Color.White.copy(alpha = 0.9f),
+                        modifier = Modifier.padding(top = 8.dp)
                     )
                 }
             }
-            Checkbox(
-                checked = task.isCompleted,
-                onCheckedChange = { onToggle() }
-            )
-        }
-    }
-}
-
-@Composable
-private fun HabitCard(
-    habit: Habit,
-    onToggle: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        elevation = 2.dp
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = habit.name,
-                    style = MaterialTheme.typography.subtitle1
-                )
-                if (habit.description.isNotBlank()) {
-                    Text(
-                        text = habit.description,
-                        style = MaterialTheme.typography.body2,
-                        color = MaterialTheme.colors.onSurface.copy(alpha = 0.6f)
-                    )
-                }
-                Text(
-                    text = "🔥 ${habit.streak}",
-                    style = MaterialTheme.typography.caption,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-            }
-            Checkbox(
-                checked = habit.isCompleted,
-                onCheckedChange = { onToggle() }
-            )
         }
     }
 }
@@ -468,6 +327,31 @@ private fun CanvasGrid() {
 }
 
 @Composable
+private fun DraggableCard(
+    modifier: Modifier = Modifier,
+    onPositionChange: (Offset) -> Unit,
+    content: @Composable () -> Unit
+) {
+    var offsetX by remember { mutableStateOf(0f) }
+    var offsetY by remember { mutableStateOf(0f) }
+
+    Box(
+        modifier = modifier
+            .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
+            .pointerInput(Unit) {
+                detectDragGestures { change, dragAmount ->
+                    change.consume()
+                    offsetX += dragAmount.x
+                    offsetY += dragAmount.y
+                    onPositionChange(Offset(offsetX, offsetY))
+                }
+            }
+    ) {
+        content()
+    }
+}
+
+@Composable
 private fun ZoomControls(
     scale: Float,
     onZoomIn: () -> Unit,
@@ -512,33 +396,4 @@ private fun ZoomControls(
                 .padding(4.dp)
         )
     }
-}
-
-@Composable
-private fun DraggableCard(
-    modifier: Modifier = Modifier,
-    onPositionChange: (Offset) -> Unit,
-    content: @Composable () -> Unit
-) {
-    var offsetX by remember { mutableStateOf(0f) }
-    var offsetY by remember { mutableStateOf(0f) }
-
-    Box(
-        modifier = modifier
-            .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
-            .pointerInput(Unit) {
-                detectDragGestures { change, dragAmount ->
-                    change.consume()
-                    offsetX += dragAmount.x
-                    offsetY += dragAmount.y
-                    onPositionChange(Offset(offsetX, offsetY))
-                }
-            }
-    ) {
-        content()
-    }
-}
-
-private enum class DialogType {
-    Task, Habit, Routine
 } 
