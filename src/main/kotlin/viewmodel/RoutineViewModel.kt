@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class RoutineViewModel(
-    private val routineRepository: RoutineRepository
+    private val repository: RoutineRepository
 ) : BaseViewModel() {
     private val _routines = MutableStateFlow<List<Routine>>(emptyList())
     val routines: StateFlow<List<Routine>> = _routines.asStateFlow()
@@ -14,13 +14,15 @@ class RoutineViewModel(
     private val _selectedType = MutableStateFlow<RoutineType>(RoutineType.MORNING)
     val selectedType: StateFlow<RoutineType> = _selectedType.asStateFlow()
 
-    fun loadRoutines(type: RoutineType? = null) {
+    fun loadAllRoutines() {
         viewModelScope.launch {
-            _routines.value = if (type != null) {
-                routineRepository.getRoutinesByType(type)
-            } else {
-                routineRepository.getAllRoutines()
-            }
+            _routines.value = repository.getAllRoutines()
+        }
+    }
+
+    fun loadRoutines(type: RoutineType) {
+        viewModelScope.launch {
+            _routines.value = repository.getRoutinesByType(type)
         }
     }
 
@@ -31,15 +33,25 @@ class RoutineViewModel(
 
     fun addRoutine(routine: Routine) {
         viewModelScope.launch {
-            routineRepository.createRoutine(routine)
-            loadRoutines(_selectedType.value)
+            repository.createRoutine(routine)
+            loadRoutines(routine.type)
         }
     }
 
     fun updateRoutine(routine: Routine) {
         viewModelScope.launch {
-            routineRepository.updateRoutine(routine)
-            loadRoutines(_selectedType.value)
+            repository.updateRoutine(routine)
+            loadRoutines(routine.type)
+        }
+    }
+
+    fun deleteRoutine(id: String) {
+        viewModelScope.launch {
+            val routine = repository.getRoutine(id)
+            routine?.let {
+                repository.deleteRoutine(id)
+                loadRoutines(it.type)
+            }
         }
     }
 } 

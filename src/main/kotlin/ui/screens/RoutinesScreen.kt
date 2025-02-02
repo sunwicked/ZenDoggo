@@ -3,26 +3,38 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import data.model.Habit
 import data.model.Routine
 import data.model.RoutineType
+import data.model.Task
 import java.time.LocalTime
 
 @Composable
 fun RoutinesScreen(
     viewModel: RoutineViewModel,
+    taskViewModel: TaskViewModel,
+    habitViewModel: HabitViewModel,
     paddingValues: PaddingValues
 ) {
     val routines by viewModel.routines.collectAsState()
     val selectedType by viewModel.selectedType.collectAsState()
+    val tasks by taskViewModel.tasks.collectAsState()
+    val habits by habitViewModel.habits.collectAsState()
+    
     var showAddDialog by remember { mutableStateOf(false) }
+    var showEditItemsDialog by remember { mutableStateOf<Routine?>(null) }
+    var showDeleteConfirmation by remember { mutableStateOf<Routine?>(null) }
 
     LaunchedEffect(selectedType) {
         viewModel.loadRoutines(selectedType)
+        taskViewModel.loadTasks()
+        habitViewModel.loadHabits()
     }
 
     Column(
@@ -53,7 +65,8 @@ fun RoutinesScreen(
                 items(routines) { routine ->
                     RoutineItem(
                         routine = routine,
-                        onEditClick = { /* TODO: Implement edit */ }
+                        onEditClick = { showEditItemsDialog = routine },
+                        onDeleteClick = { showDeleteConfirmation = routine }
                     )
                 }
             }
@@ -79,84 +92,50 @@ fun RoutinesScreen(
             currentType = selectedType
         )
     }
-}
 
-@Composable
-private fun RoutineItem(
-    routine: Routine,
-    onEditClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = 2.dp
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = routine.name,
-                    style = MaterialTheme.typography.h6
+    // Show edit items dialog
+    showEditItemsDialog?.let { routine ->
+        AddItemsToRoutineDialog(
+            onDismiss = { showEditItemsDialog = null },
+            onSave = { selectedTasks, selectedHabits ->
+                viewModel.updateRoutine(
+                    routine.copy(
+                        tasks = selectedTasks,
+                        habits = selectedHabits
+                    )
                 )
-                IconButton(onClick = onEditClick) {
-                    Icon(Icons.Default.Edit, contentDescription = "Edit Routine")
-                }
-            }
+            },
+            availableTasks = tasks,
+            availableHabits = habits,
+            currentRoutine = routine
+        )
+    }
 
-            // Time display
-            Row(
-                modifier = Modifier.padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                routine.startTime?.let { startTime ->
-                    Text(
-                        text = "Start: $startTime",
-                        style = MaterialTheme.typography.caption
+    // Add delete confirmation dialog
+    showDeleteConfirmation?.let { routine ->
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = null },
+            title = { Text("Delete Routine") },
+            text = { Text("Are you sure you want to delete '${routine.name}'?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteRoutine(routine.id)
+                        showDeleteConfirmation = null
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        backgroundColor = MaterialTheme.colors.error
                     )
+                ) {
+                    Text("Delete")
                 }
-                routine.endTime?.let { endTime ->
-                    Text(
-                        text = "End: $endTime",
-                        style = MaterialTheme.typography.caption
-                    )
-                }
-            }
-
-            // Tasks and Habits lists
-            if (routine.tasks.isNotEmpty()) {
-                Text(
-                    text = "Tasks (${routine.tasks.size})",
-                    style = MaterialTheme.typography.subtitle2,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-                routine.tasks.forEach { task ->
-                    Text(
-                        text = "• ${task.name}",
-                        style = MaterialTheme.typography.body2
-                    )
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmation = null }) {
+                    Text("Cancel")
                 }
             }
-
-            if (routine.habits.isNotEmpty()) {
-                Text(
-                    text = "Habits (${routine.habits.size})",
-                    style = MaterialTheme.typography.subtitle2,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-                routine.habits.forEach { habit ->
-                    Text(
-                        text = "• ${habit.name}",
-                        style = MaterialTheme.typography.body2
-                    )
-                }
-            }
-        }
+        )
     }
 }
 
@@ -209,4 +188,4 @@ fun AddRoutineDialog(
             }
         }
     )
-} 
+}

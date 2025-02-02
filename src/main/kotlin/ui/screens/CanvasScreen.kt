@@ -32,7 +32,7 @@ fun CanvasScreen(
     LaunchedEffect(Unit) {
         taskViewModel.loadTasks()
         habitViewModel.loadHabits()
-        routineViewModel.loadRoutines()
+        routineViewModel.loadAllRoutines()
     }
 
     Box(
