@@ -137,6 +137,8 @@ fun CanvasScreen(
                     routine = routine,
                     position = positions[routine.id] ?: Offset.Zero,
                     onPositionChange = { positions[routine.id] = it },
+                    onEdit = { itemToEdit = routine },
+                    onDelete = { showDeleteConfirmation = routine },
                     onTaskEdit = { task -> itemToEdit = task },
                     onTaskDelete = { task -> showDeleteConfirmation = task },
                     onHabitEdit = { habit -> itemToEdit = habit },
@@ -249,6 +251,16 @@ fun CanvasScreen(
     // Handle edit dialogs
     itemToEdit?.let { item ->
         when (item) {
+            is Routine -> AddRoutineDialog(
+                routine = item,
+                onDismiss = { itemToEdit = null },
+                onRoutineSaved = { updatedRoutine ->
+                    routineViewModel.updateRoutine(updatedRoutine)
+                    itemToEdit = null
+                },
+                availableTasks = tasks,
+                availableHabits = habits
+            )
             is Task -> TaskDialog(
                 task = item,
                 onDismiss = { itemToEdit = null },
@@ -274,6 +286,7 @@ fun CanvasScreen(
             item = item,
             onConfirm = {
                 when (item) {
+                    is Routine -> routineViewModel.deleteRoutine(item.id)
                     is Task -> taskViewModel.deleteTask(item.id)
                     is Habit -> habitViewModel.deleteHabit(item.id)
                 }
@@ -293,11 +306,15 @@ private fun RoutineNode(
     routine: Routine,
     position: Offset,
     onPositionChange: (Offset) -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
     onTaskEdit: (Task) -> Unit,
     onTaskDelete: (Task) -> Unit,
     onHabitEdit: (Habit) -> Unit,
     onHabitDelete: (Habit) -> Unit
 ) {
+    var showMenu by remember { mutableStateOf(false) }
+    
     DraggableCard(
         modifier = Modifier
             .offset { IntOffset(position.x.roundToInt(), position.y.roundToInt()) }
@@ -325,7 +342,7 @@ private fun RoutineNode(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = routine.name,
                             style = MaterialTheme.typography.h6,
@@ -337,14 +354,63 @@ private fun RoutineNode(
                             color = CanvasColors.textSecondary
                         )
                     }
+                    
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        routine.startTime?.let { 
-                            TimeChip(time = it)
-                        }
-                        routine.endTime?.let {
-                            TimeChip(time = it)
+                        // Time chips
+                        routine.startTime?.let { TimeChip(time = it) }
+                        routine.endTime?.let { TimeChip(time = it) }
+                        
+                        // Menu
+                        Box {
+                            IconButton(
+                                onClick = { showMenu = true },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.MoreVert,
+                                    contentDescription = "More options",
+                                    tint = CanvasColors.textSecondary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            
+                            DropdownMenu(
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    onClick = {
+                                        onEdit()
+                                        showMenu = false
+                                    }
+                                ) {
+                                    Icon(
+                                        Icons.Default.Edit,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Edit")
+                                }
+                                
+                                DropdownMenuItem(
+                                    onClick = {
+                                        onDelete()
+                                        showMenu = false
+                                    }
+                                ) {
+                                    Icon(
+                                        Icons.Default.Delete,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Delete")
+                                }
+                            }
                         }
                     }
                 }
@@ -557,6 +623,7 @@ private fun HabitCard(
     onDelete: () -> Unit
 ) {
     var isHovered by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
     
     Card(
         modifier = modifier
@@ -586,7 +653,8 @@ private fun HabitCard(
             ) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
                 ) {
                     Icon(
                         Icons.Default.Loop,
@@ -618,6 +686,56 @@ private fun HabitCard(
                                 backgroundColor = CanvasColors.progressBackground,
                                 color = CanvasColors.progressFill
                             )
+                        }
+                    }
+                }
+                
+                // Add menu icon and dropdown
+                Box {
+                    IconButton(
+                        onClick = { showMenu = true },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.MoreVert,
+                            contentDescription = "More options",
+                            tint = CanvasColors.textSecondary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            onClick = {
+                                onEdit()
+                                showMenu = false
+                            }
+                        ) {
+                            Icon(
+                                Icons.Default.Edit,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("Edit")
+                        }
+                        
+                        DropdownMenuItem(
+                            onClick = {
+                                onDelete()
+                                showMenu = false
+                            }
+                        ) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("Delete")
                         }
                     }
                 }

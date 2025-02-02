@@ -41,26 +41,14 @@ class RoutineViewModel(
     fun updateRoutine(routine: Routine) {
         viewModelScope.launch {
             repository.updateRoutine(routine)
-            loadRoutines(routine.type)
+            loadAllRoutines()
         }
     }
 
     fun deleteRoutine(id: String) {
         viewModelScope.launch {
-            try {
-                val routine = repository.getRoutine(id)
-                routine?.let {
-                    repository.deleteRoutine(id)
-                    // Reload the appropriate list based on context
-                    when {
-                        _selectedType.value == it.type -> loadRoutines(it.type)
-                        else -> loadAllRoutines()
-                    }
-                }
-            } catch (e: Exception) {
-                // Handle error
-                println("Error deleting routine: ${e.message}")
-            }
+            repository.deleteRoutine(id)
+            loadAllRoutines()
         }
     }
 } 
