@@ -1,8 +1,11 @@
+package data.model
+
+import data.model.Task
 import java.time.LocalTime
 import java.util.UUID
 
 enum class RoutineType {
-    MORNING, AFTERNOON, EVENING, NIGHT, CUSTOM
+    MORNING, AFTERNOON, EVENING, NIGHT
 }
 
 data class Routine(

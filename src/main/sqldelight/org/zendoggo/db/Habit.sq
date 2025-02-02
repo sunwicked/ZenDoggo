@@ -1,0 +1,34 @@
+import kotlin.Boolean;
+import java.time.LocalDateTime;
+
+CREATE TABLE habit (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    streak INTEGER NOT NULL DEFAULT 0,
+    is_completed INTEGER AS Boolean NOT NULL DEFAULT 0,
+    created_at INTEGER AS LocalDateTime NOT NULL
+);
+
+getAllHabits:
+SELECT *
+FROM habit
+ORDER BY created_at DESC;
+
+insertHabit:
+INSERT OR REPLACE INTO habit(id, name, description, streak, is_completed, created_at)
+VALUES (?, ?, ?, ?, ?, ?);
+
+updateHabit:
+UPDATE habit
+SET is_completed = ?, streak = ?
+WHERE id = ?;
+
+deleteHabit:
+DELETE FROM habit
+WHERE id = ?;
+
+getHabitById:
+SELECT *
+FROM habit
+WHERE id = ?; 

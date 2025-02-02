@@ -2,10 +2,13 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 
 fun main() = application {
+    // Initialize database
+    DatabaseManager.initialize()
+
     // Initialize repositories
-    val taskRepository = InMemoryTaskRepository()
-    val habitRepository = InMemoryHabitRepository()
-    val routineRepository = InMemoryRoutineRepository()
+    val taskRepository = SQLiteTaskRepository()
+    val habitRepository = SQLiteHabitRepository()
+    val routineRepository = SQLiteRoutineRepository()
 
     // Initialize ViewModels
     val taskViewModel = TaskViewModel(taskRepository)

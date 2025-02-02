@@ -1,3 +1,5 @@
+import data.model.Task
+
 class InMemoryTaskRepository : TaskRepository {
     private val tasks = mutableMapOf<String, Task>()
 

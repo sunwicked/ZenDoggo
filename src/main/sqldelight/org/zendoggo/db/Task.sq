@@ -1,0 +1,34 @@
+import kotlin.Boolean;
+import java.time.LocalDateTime;
+
+CREATE TABLE task (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    is_completed INTEGER AS Boolean NOT NULL DEFAULT 0,
+    scheduled_time INTEGER AS LocalDateTime,
+    created_at INTEGER AS LocalDateTime NOT NULL
+);
+
+getAllTasks:
+SELECT *
+FROM task
+ORDER BY created_at DESC;
+
+insertTask:
+INSERT OR REPLACE INTO task(id, name, description, is_completed, scheduled_time, created_at)
+VALUES (?, ?, ?, ?, ?, ?);
+
+updateTask:
+UPDATE task
+SET is_completed = ?
+WHERE id = ?;
+
+deleteTask:
+DELETE FROM task
+WHERE id = ?;
+
+getTaskById:
+SELECT *
+FROM task
+WHERE id = ?; 

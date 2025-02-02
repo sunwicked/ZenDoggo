@@ -1,3 +1,5 @@
+import data.model.Habit
+
 class InMemoryHabitRepository : HabitRepository {
     private val habits = mutableMapOf<String, Habit>()
 

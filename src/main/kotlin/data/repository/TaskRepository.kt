@@ -1,3 +1,5 @@
+import data.model.Task
+
 interface TaskRepository {
     suspend fun getAllTasks(): List<Task>
     suspend fun getTask(id: String): Task?

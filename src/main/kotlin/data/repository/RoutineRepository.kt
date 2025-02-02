@@ -1,3 +1,6 @@
+import data.model.Routine
+import data.model.RoutineType
+
 interface RoutineRepository {
     suspend fun getAllRoutines(): List<Routine>
     suspend fun getRoutine(id: String): Routine?

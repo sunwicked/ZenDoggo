@@ -1,0 +1,85 @@
+import kotlin.Boolean;
+import java.time.LocalTime;
+import java.time.LocalDateTime;
+import data.model.RoutineType;
+
+CREATE TABLE routine (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    start_time INTEGER AS LocalTime,
+    end_time INTEGER AS LocalTime,
+    created_at INTEGER AS LocalDateTime NOT NULL
+);
+
+CREATE TABLE routine_task (
+    routine_id TEXT NOT NULL,
+    task_id TEXT NOT NULL,
+    FOREIGN KEY (routine_id) REFERENCES routine(id),
+    FOREIGN KEY (task_id) REFERENCES task(id),
+    PRIMARY KEY (routine_id, task_id)
+);
+
+CREATE TABLE routine_habit (
+    routine_id TEXT NOT NULL,
+    habit_id TEXT NOT NULL,
+    FOREIGN KEY (routine_id) REFERENCES routine(id),
+    FOREIGN KEY (habit_id) REFERENCES habit(id),
+    PRIMARY KEY (routine_id, habit_id)
+);
+
+getRoutineWithItems:
+SELECT 
+    r.*,
+    t.id AS task_id,
+    t.name AS task_name,
+    h.id AS habit_id,
+    h.name AS habit_name
+FROM routine r
+LEFT JOIN routine_task rt ON r.id = rt.routine_id
+LEFT JOIN task t ON rt.task_id = t.id
+LEFT JOIN routine_habit rh ON r.id = rh.routine_id
+LEFT JOIN habit h ON rh.habit_id = h.id
+WHERE r.id = ?;
+
+getAllRoutines:
+SELECT *
+FROM routine
+ORDER BY created_at DESC;
+
+insertRoutine:
+INSERT INTO routine(id, name, type, start_time, end_time, created_at)
+VALUES (?, ?, ?, ?, ?, ?);
+
+addTaskToRoutine:
+INSERT INTO routine_task(routine_id, task_id)
+VALUES (?, ?);
+
+addHabitToRoutine:
+INSERT INTO routine_habit(routine_id, habit_id)
+VALUES (?, ?);
+
+getRoutineById:
+SELECT *
+FROM routine
+WHERE id = ?;
+
+updateRoutine:
+UPDATE routine
+SET name = ?,
+    type = ?,
+    start_time = ?,
+    end_time = ?
+WHERE id = ?;
+
+deleteRoutineTaskLinks:
+DELETE FROM routine_task
+WHERE routine_id = ?;
+
+deleteRoutineHabitLinks:
+DELETE FROM routine_habit
+WHERE routine_id = ?;
+
+deleteRoutine:
+DELETE FROM routine
+WHERE id = ?; 

@@ -13,6 +13,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.AddTask
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.PlaylistAdd
+import data.model.Routine
+import data.model.RoutineType
 
 @Composable
 fun CanvasScreen(
@@ -69,10 +71,14 @@ fun CanvasScreen(
             items(routines) { routine ->
                 ItemCard(
                     title = routine.name,
-                    description = "Type: ${routine.type}\nTasks: ${routine.tasks.size}, Habits: ${routine.habits.size}",
+                    description = buildRoutineDescription(routine),
                     icon = Icons.Outlined.Schedule,
                     isCompleted = false,
-                    onToggle = { /* Routines don't have completion state */ }
+                    onToggle = { /* Routines don't have completion state */ },
+                    isExpandable = true,
+                    expandedContent = {
+                        RoutineDetails(routine = routine)
+                    }
                 )
             }
         }
@@ -118,6 +124,16 @@ fun CanvasScreen(
     }
 }
 
+private fun buildRoutineDescription(routine: Routine): String {
+    return buildString {
+        append("Type: ${routine.type}")
+        routine.startTime?.let { append("\nStart: $it") }
+        routine.endTime?.let { append("\nEnd: $it") }
+        append("\nTasks: ${routine.tasks.size}")
+        append("\nHabits: ${routine.habits.size}")
+    }
+}
+
 private enum class DialogType {
     Task, Habit, Routine
 }
@@ -128,48 +144,135 @@ private fun ItemCard(
     description: String,
     icon: ImageVector,
     isCompleted: Boolean,
-    onToggle: () -> Unit
+    onToggle: () -> Unit,
+    isExpandable: Boolean = false,
+    expandedContent: @Composable (() -> Unit)? = null
 ) {
+    var expanded by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = 2.dp
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colors.primary
-            )
-            
-            Column(
+        Column {
+            Row(
                 modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 16.dp)
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.h6
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colors.primary
                 )
-                if (description.isNotBlank()) {
+                
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 16.dp)
+                ) {
                     Text(
-                        text = description,
-                        style = MaterialTheme.typography.body2
+                        text = title,
+                        style = MaterialTheme.typography.h6
                     )
+                    if (description.isNotBlank()) {
+                        Text(
+                            text = description,
+                            style = MaterialTheme.typography.body2
+                        )
+                    }
+                }
+                
+                Row {
+                    if (isExpandable) {
+                        IconButton(onClick = { expanded = !expanded }) {
+                            Icon(
+                                imageVector = if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                                contentDescription = if (expanded) "Show less" else "Show more"
+                            )
+                        }
+                    }
+                    
+                    IconButton(onClick = onToggle) {
+                        Icon(
+                            imageVector = if (isCompleted) Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
+                            contentDescription = if (isCompleted) "Mark incomplete" else "Mark complete",
+                            tint = if (isCompleted) MaterialTheme.colors.primary else MaterialTheme.colors.onSurface.copy(alpha = 0.3f)
+                        )
+                    }
                 }
             }
-            
-            IconButton(onClick = onToggle) {
-                Icon(
-                    imageVector = if (isCompleted) Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
-                    contentDescription = if (isCompleted) "Mark incomplete" else "Mark complete",
-                    tint = if (isCompleted) MaterialTheme.colors.primary else MaterialTheme.colors.onSurface.copy(alpha = 0.3f)
-                )
+
+            if (expanded && expandedContent != null) {
+                Divider()
+                Box(modifier = Modifier.padding(16.dp)) {
+                    expandedContent()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RoutineDetails(routine: Routine) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        if (routine.tasks.isNotEmpty()) {
+            Text(
+                text = "Tasks",
+                style = MaterialTheme.typography.subtitle1,
+                color = MaterialTheme.colors.primary
+            )
+            routine.tasks.forEach { task ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "• ${task.name}",
+                        style = MaterialTheme.typography.body2
+                    )
+                    if (task.isCompleted) {
+                        Icon(
+                            imageVector = Icons.Outlined.CheckCircle,
+                            contentDescription = null,
+                            tint = MaterialTheme.colors.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        if (routine.habits.isNotEmpty()) {
+            Text(
+                text = "Habits",
+                style = MaterialTheme.typography.subtitle1,
+                color = MaterialTheme.colors.primary
+            )
+            routine.habits.forEach { habit ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "• ${habit.name} (🔥 ${habit.streak})",
+                        style = MaterialTheme.typography.body2
+                    )
+                    if (habit.isCompleted) {
+                        Icon(
+                            imageVector = Icons.Outlined.CheckCircle,
+                            contentDescription = null,
+                            tint = MaterialTheme.colors.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
             }
         }
     }
