@@ -41,4 +41,10 @@ class HabitViewModel(
             loadHabits()
         }
     }
+
+    fun deleteHabit(id: String) {
+        viewModelScope.launch {
+            habitRepository.deleteHabit(id)
+        }
+    }
 } 

@@ -13,20 +13,22 @@ import androidx.compose.ui.unit.dp
 import data.model.Priority
 import data.model.Task
 import java.time.LocalDateTime
+import java.util.UUID
 
 @Composable
 fun TaskDialog(
+    task: Task? = null,  // null for creation, non-null for editing
     onDismiss: () -> Unit,
-    onTaskAdded: (Task) -> Unit
+    onTaskAdded: (Task) -> Unit = {},  // for creation
+    onTaskSaved: (Task) -> Unit = {}   // for editing
 ) {
-    var taskName by remember { mutableStateOf("") }
-    var taskDescription by remember { mutableStateOf("") }
-    var selectedPriority by remember { mutableStateOf(Priority.MEDIUM) }
-    var selectedDateTime by remember { mutableStateOf<LocalDateTime?>(null) }
+    var taskName by remember { mutableStateOf(task?.name ?: "") }
+    var taskDescription by remember { mutableStateOf(task?.description ?: "") }
+    var selectedPriority by remember { mutableStateOf(task?.priority ?: Priority.MEDIUM) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add New Task") },
+        title = { Text(if (task == null) "Add New Task" else "Edit Task") },
         text = {
             Column(
                 modifier = Modifier
@@ -88,19 +90,26 @@ fun TaskDialog(
             Button(
                 onClick = {
                     if (taskName.isNotBlank()) {
-                        onTaskAdded(
-                            Task(
-                                name = taskName,
-                                description = taskDescription,
-                                priority = selectedPriority,
-                                timeScheduled = selectedDateTime
-                            )
+                        val newTask = Task(
+                            id = task?.id ?: UUID.randomUUID().toString(),
+                            name = taskName,
+                            description = taskDescription,
+                            priority = selectedPriority,
+                            isCompleted = task?.isCompleted ?: false,
+                            progress = task?.progress ?: 0f,
+                            timeScheduled = task?.timeScheduled,
+                            createdAt = task?.createdAt ?: LocalDateTime.now()
                         )
+                        if (task == null) {
+                            onTaskAdded(newTask)
+                        } else {
+                            onTaskSaved(newTask)
+                        }
                     }
                 },
                 enabled = taskName.isNotBlank()
             ) {
-                Text("Add")
+                Text(if (task == null) "Add" else "Save")
             }
         },
         dismissButton = {

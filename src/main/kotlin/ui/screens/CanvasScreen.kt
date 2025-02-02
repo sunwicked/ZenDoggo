@@ -103,6 +103,9 @@ fun CanvasScreen(
         habitViewModel.loadHabits()
     }
 
+    var itemToEdit by remember { mutableStateOf<Any?>(null) }
+    var showDeleteConfirmation by remember { mutableStateOf<Any?>(null) }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -133,9 +136,11 @@ fun CanvasScreen(
                 RoutineNode(
                     routine = routine,
                     position = positions[routine.id] ?: Offset.Zero,
-                    onPositionChange = { newOffset ->
-                        positions[routine.id] = newOffset
-                    }
+                    onPositionChange = { positions[routine.id] = it },
+                    onTaskEdit = { task -> itemToEdit = task },
+                    onTaskDelete = { task -> showDeleteConfirmation = task },
+                    onHabitEdit = { habit -> itemToEdit = habit },
+                    onHabitDelete = { habit -> showDeleteConfirmation = habit }
                 )
             }
         }
@@ -240,6 +245,43 @@ fun CanvasScreen(
         }
         null -> { /* No dialog shown */ }
     }
+
+    // Handle edit dialogs
+    itemToEdit?.let { item ->
+        when (item) {
+            is Task -> TaskDialog(
+                task = item,
+                onDismiss = { itemToEdit = null },
+                onTaskSaved = { updatedTask ->
+                    taskViewModel.updateTask(updatedTask)
+                    itemToEdit = null
+                }
+            )
+            is Habit -> HabitDialog(
+                habit = item,
+                onDismiss = { itemToEdit = null },
+                onHabitSaved = { updatedHabit ->
+                    habitViewModel.updateHabit(updatedHabit)
+                    itemToEdit = null
+                }
+            )
+        }
+    }
+
+    // Handle delete confirmation
+    showDeleteConfirmation?.let { item ->
+        DeleteConfirmationDialog(
+            item = item,
+            onConfirm = {
+                when (item) {
+                    is Task -> taskViewModel.deleteTask(item.id)
+                    is Habit -> habitViewModel.deleteHabit(item.id)
+                }
+                showDeleteConfirmation = null
+            },
+            onDismiss = { showDeleteConfirmation = null }
+        )
+    }
 }
 
 private enum class DialogType {
@@ -250,7 +292,11 @@ private enum class DialogType {
 private fun RoutineNode(
     routine: Routine,
     position: Offset,
-    onPositionChange: (Offset) -> Unit
+    onPositionChange: (Offset) -> Unit,
+    onTaskEdit: (Task) -> Unit,
+    onTaskDelete: (Task) -> Unit,
+    onHabitEdit: (Habit) -> Unit,
+    onHabitDelete: (Habit) -> Unit
 ) {
     DraggableCard(
         modifier = Modifier
@@ -317,7 +363,11 @@ private fun RoutineNode(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         routine.tasks.forEach { task ->
-                            TaskCard(task = task)
+                            TaskCard(
+                                task = task,
+                                onEdit = { onTaskEdit(task) },
+                                onDelete = { onTaskDelete(task) }
+                            )
                         }
                     }
                 }
@@ -334,7 +384,11 @@ private fun RoutineNode(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         routine.habits.forEach { habit ->
-                            HabitCard(habit = habit)
+                            HabitCard(
+                                habit = habit,
+                                onEdit = { onHabitEdit(habit) },
+                                onDelete = { onHabitDelete(habit) }
+                            )
                         }
                     }
                 }
@@ -346,9 +400,12 @@ private fun RoutineNode(
 @Composable
 private fun TaskCard(
     task: Task,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
 ) {
     var isHovered by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
     
     Card(
         modifier = modifier
@@ -411,13 +468,68 @@ private fun TaskCard(
                     )
                 }
                 
-                if (task.isCompleted) {
-                    Icon(
-                        Icons.Default.CheckCircle,
-                        contentDescription = "Completed",
-                        tint = CanvasColors.completedIcon,
-                        modifier = Modifier.size(16.dp)
-                    )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (task.isCompleted) {
+                        Icon(
+                            Icons.Default.CheckCircle,
+                            contentDescription = "Completed",
+                            tint = CanvasColors.completedIcon,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    
+                    // Add menu icon and dropdown
+                    Box {
+                        IconButton(
+                            onClick = { showMenu = true },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.MoreVert,
+                                contentDescription = "More options",
+                                tint = CanvasColors.textSecondary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                onClick = {
+                                    onEdit()
+                                    showMenu = false
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text("Edit")
+                            }
+                            
+                            DropdownMenuItem(
+                                onClick = {
+                                    onDelete()
+                                    showMenu = false
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text("Delete")
+                            }
+                        }
+                    }
                 }
             }
             
@@ -440,7 +552,9 @@ private fun TaskCard(
 @Composable
 private fun HabitCard(
     habit: Habit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
 ) {
     var isHovered by remember { mutableStateOf(false) }
     
